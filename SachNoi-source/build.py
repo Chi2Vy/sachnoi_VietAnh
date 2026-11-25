@@ -17,17 +17,25 @@ modules = {
 }
 parser = argparse.ArgumentParser(description="Đóng gói Sách Nói thành một file HTML5.")
 parser.add_argument("--output", type=Path, default=Path("SachNoi.html"))
-destination = parser.parse_args().output.resolve()
+parser.add_argument("--web", action="store_true", help="Build the web entry without embedding PDF.js.")
+options = parser.parse_args()
+destination = options.output.resolve()
 
 html = (source / "index.template.html").read_text(encoding="utf-8")
 embedded = {
     name: base64.b64encode((source / path).read_bytes()).decode("ascii")
     for name, path in modules.items()
+    if not options.web or name not in {"pdf", "worker"}
 }
 replacements = {
     "{{STYLE}}": (source / "style.css").read_text(encoding="utf-8"),
     "{{PAGE_FLIP}}": (source / "vendor" / "page-flip.js").read_text(encoding="utf-8"),
     "{{MODULES}}": json.dumps(embedded, separators=(",", ":")),
+    "{{LOCAL_ENTRY}}": (
+        "<script>if(location.protocol==='file:'){"
+        "location.replace('SachNoi.html'+location.search+location.hash);}</script>"
+        if options.web else ""
+    ),
 }
 for marker, content in replacements.items():
     if html.count(marker) != 1:

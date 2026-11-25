@@ -1,8 +1,5 @@
 // Nhập PDF hoặc ảnh thành các trang lật, ảnh thu nhỏ và văn bản.
-import * as pdfjs from '../vendor/pdf.min.mjs';
 import { newId, putBook, putPage, putTexts, putFile, deleteBook } from './db.js';
-
-pdfjs.GlobalWorkerOptions.workerSrc = window.__gs_pdf_worker;
 
 export const ACCEPT = {
   book: '.pdf,application/pdf,image/jpeg,image/png,image/webp',
@@ -136,6 +133,8 @@ export async function importBook(opt, onProgress = () => {}) {
     const texts = [];
     if (pdfFile) {
       onProgress({ done: 0, total: 1, phase: 'Đang mở PDF…' });
+      const pdfjs = await import('../vendor/pdf.min.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = window.__gs_pdf_worker;
       const data = await pdfFile.arrayBuffer();
       const pdf = await pdfjs.getDocument({
         data: data.slice(0),

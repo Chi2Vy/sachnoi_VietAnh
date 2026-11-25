@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
+  {{LOCAL_ENTRY}}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Sách Nói — thư viện đọc sách lật trang</title>
@@ -287,8 +288,10 @@
 const b64data = JSON.parse(document.querySelector('#gs-embedded').textContent);
 const decode = str => new TextDecoder().decode(Uint8Array.from(atob(str),c=>c.charCodeAt(0)));
 const blobCode = code => URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-window.__gs_pdf_worker=blobCode(decode(b64data.worker));
-const pdf=blobCode(decode(b64data.pdf));
+const moduleUrl = (key, path) => b64data[key] ? blobCode(decode(b64data[key]))
+  : new URL(`SachNoi-source/vendor/${path}`, document.baseURI).href;
+window.__gs_pdf_worker=moduleUrl('worker', 'worker.min.mjs');
+const pdf=moduleUrl('pdf', 'pdf.min.mjs');
 const db=blobCode(decode(b64data.db));
 const voice=blobCode(decode(b64data.voice));
 const upload=blobCode(decode(b64data['upload-plan']));
