@@ -319,8 +319,9 @@ mark { background: color-mix(in srgb, var(--amber) 55%, transparent); color: inh
 .bilingual-reader .r-bottom { background: #be2335; border-color: #e54b56; }
 .bilingual-reader :is(.dock, #rBack, #rHelp) { display: none; }
 .bilingual-reader .zoom-wrap { inset: 0 0 53px; }
-.bilingual-reader #book .single-book-page { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
-.bilingual-reader .stage:not(:has(.page-voice:not([hidden]))) .zoom-wrap { bottom: 0; }
+.bilingual-reader #book { cursor: grab; }
+.bilingual-reader #book:active { cursor: grabbing; }
+.bilingual-reader #book .book-leaf { background: transparent; }
 .bilingual-reader .page-voices { justify-content: center; gap: 10px; }
 .bilingual-reader .page-voice { display: inline-flex; gap: 8px; align-items: center; width: auto; height: 38px; padding: 0 15px; border-radius: 10px; font-weight: 600; }
 .bilingual-reader .page-voice[hidden] { display: none; }

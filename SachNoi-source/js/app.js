@@ -48,22 +48,36 @@ async function loadFeaturedBook() {
   if (existing) return existing;
   featuredLoading ??= (async () => {
     toast('Đang mở Góc Hà Nội – Việt Anh…');
-    const script = document.createElement('script');
-    script.src = new URL('books/goc-ha-noi-viet-anh.js', document.baseURI).href;
-    let encoded;
+    const files = [
+      'goc-ha-noi-viet-anh.js',
+      'goc-ha-noi-viet-anh-2.js',
+      'goc-ha-noi-viet-anh-3.js',
+      'goc-ha-noi-viet-anh-4.js',
+      'goc-ha-noi-viet-anh-5.js',
+      'goc-ha-noi-viet-anh-6.js',
+    ];
+    const scripts = files.map((name) => {
+      const script = document.createElement('script');
+      script.src = new URL(`books/${name}`, document.baseURI).href;
+      return script;
+    });
+    const encoded = globalThis.__gsGocHaNoiPdf = [];
     try {
-      await new Promise((resolve, reject) => {
+      const loaded = await Promise.allSettled(scripts.map((script) => new Promise((resolve, reject) => {
         script.onload = resolve;
-        script.onerror = () => reject(new Error('Không tìm thấy tệp sách Góc Hà Nội trong thư mục books.'));
+        script.onerror = reject;
         document.head.append(script);
-      });
-      encoded = globalThis.__gsGocHaNoiPdf;
-      if (!Array.isArray(encoded)) throw new Error('Tệp sách Góc Hà Nội bị lỗi.');
+      })));
+      if (loaded.some((result, index) => result.status !== 'fulfilled' || !Array.isArray(encoded[index]))) {
+        throw new Error('Không tải đủ dữ liệu sách Góc Hà Nội.');
+      }
     } finally {
       delete globalThis.__gsGocHaNoiPdf;
-      script.remove();
+      scripts.forEach((script) => script.remove());
     }
-    const parts = encoded.map((chunk) => Uint8Array.from(atob(chunk), (char) => char.charCodeAt(0)));
+    const parts = encoded.flat().map((chunk) => typeof Uint8Array.fromBase64 === 'function'
+      ? Uint8Array.fromBase64(chunk)
+      : Uint8Array.from(atob(chunk), (char) => char.charCodeAt(0)));
     const file = new File(parts, 'GocHaNoi - VietAnh Ver14.pdf', { type: 'application/pdf' });
     if (file.size !== featuredBook.size) throw new Error('Tệp sách Góc Hà Nội chưa đủ dung lượng.');
     const book = await importBook({ id: featuredBook.id, title: featuredBook.title, files: [file] }, ({ phase }) => toast(phase));

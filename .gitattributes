@@ -1,1 +1,1 @@
-books/goc-ha-noi-viet-anh.js filter=lfs diff=lfs merge=lfs -text
+books/goc-ha-noi-viet-anh*.js -text

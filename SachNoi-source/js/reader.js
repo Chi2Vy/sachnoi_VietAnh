@@ -109,7 +109,7 @@ export class Reader {
     return this.n === 1 || !!this.book?.bilingualReader;
   }
 
-  _build(startIdx) {
+  _build(startIdx, addHistory = false) {
     if (this.flip) {
       try { this.flip.destroy(); } catch {}
       this.flip = null;
@@ -131,11 +131,7 @@ export class Reader {
       image.src = url;
       return image;
     });
-    if (this.book.bilingualReader) {
-      this._showSinglePage(startIdx);
-      return;
-    }
-    const ratio = this.book.pw / this.book.ph;
+    const ratio = this.book.bilingualReader ? 2 : this.book.pw / this.book.ph;
     const base = 600;
     this.flip = new St.PageFlip(this.bookEl, {
       width: Math.round(base * ratio),
@@ -152,6 +148,8 @@ export class Reader {
       flippingTime: 650,
       mobileScrollSupport: false,
       swipeDistance: 24,
+      // Keep the original fold and let the wide single page turn once dragged past its center.
+      finishDragAtCenter: !!this.book.bilingualReader,
       startPage: startIdx,
       startZIndex: 5,
       autoSize: false,
@@ -166,19 +164,14 @@ export class Reader {
     });
     this.flip.loadFromHTML(leaves);
     if (!single) this.flip.getPage(0).setDensity('soft');
-    this.flip.on('flip', (e) => this._onFlip(e.data));
+    const flip = this.flip;
+    flip.on('flip', (e) => {
+      if (this.flip === flip) this._onFlip(e.data);
+    });
     this.cur = this.flip.getCurrentPageIndex();
     this.focusedPage = startIdx;
-    this._updateUI();
-    this._syncButtons();
-  }
-
-  _showSinglePage(index, addHistory = false) {
-    this.cur = this.focusedPage = index;
-    const pageImage = this.pageImages[index];
-    pageImage.className = 'single-book-page';
-    this.bookEl.replaceChildren(pageImage);
     this._updateUI(addHistory);
+    this._syncButtons();
   }
 
   _onFlip(idx) {
@@ -186,10 +179,14 @@ export class Reader {
     const changed = this.cur !== idx;
     this.cur = idx;
     if (!this._visible().includes(this.focusedPage)) this.focusedPage = idx;
-    this._updateUI();
+    const bilingual = this.book.bilingualReader;
+    this._updateUI(changed && bilingual && !this.followVoice && !this.fromHistory);
     if (changed) this._playFlipSound();
     DB.patchBook(this.book.id, { lastPage: this.focusedPage });
-    if (changed && this.reading && !this.followVoice) this.startVoice();
+    if (changed && this.reading && !this.followVoice) {
+      if (bilingual) this.stopVoice();
+      else this.startVoice();
+    }
   }
 
   _visible() {
@@ -239,17 +236,13 @@ export class Reader {
   /* ---------------- điều hướng ---------------- */
   goTo(idx, { followVoice = false, fromHistory = false } = {}) {
     idx = clamp(idx, 0, this.n - 1);
-    if (this.book?.bilingualReader) {
-      if (idx === this.focusedPage) {
-        this._updateUI();
-        return;
-      }
-      if (this.reading && !followVoice) this.stopVoice();
-      this._showSinglePage(idx, !followVoice && !fromHistory);
+    if (!this.flip) return;
+    if (this.book.bilingualReader && ['flipping', 'user_fold'].includes(this.flip.getState())) {
+      if (this.reading && !followVoice && idx !== this.focusedPage) this.stopVoice();
+      this._build(idx, !followVoice && !fromHistory);
       DB.patchBook(this.book.id, { lastPage: idx });
       return;
     }
-    if (!this.flip) return;
     const previous = this.focusedPage;
     this.focusedPage = idx;
     if (this._visible().includes(idx)) {
@@ -259,15 +252,19 @@ export class Reader {
       return;
     }
     this.followVoice = followVoice;
+    this.fromHistory = fromHistory;
     try {
       this.flip.turnToPage(idx);
     } finally {
       this.followVoice = false;
+      this.fromHistory = false;
     }
   }
   next() {
-    if (this.book?.bilingualReader) return this.goTo(this.focusedPage + 1);
-    if (this.flip?.getState() === 'flipping') return;
+    if (this.focusedPage >= this.n - 1 || this.flip?.getState() === 'flipping') return;
+    if (this.book?.bilingualReader && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return this.goTo(this.focusedPage + 1);
+    }
     if (this.focusedPage < this.n - 1 && this._visible().at(-1) === this.n - 1) {
       this.goTo(this.n - 1);
       return;
@@ -275,8 +272,10 @@ export class Reader {
     this.flip?.flipNext();
   }
   prev() {
-    if (this.book?.bilingualReader) return this.goTo(this.focusedPage - 1);
-    if (this.flip?.getState() === 'flipping') return;
+    if (this.focusedPage <= 0 || this.flip?.getState() === 'flipping') return;
+    if (this.book?.bilingualReader && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return this.goTo(this.focusedPage - 1);
+    }
     this.flip?.flipPrev();
   }
 
@@ -887,14 +886,9 @@ export class Reader {
     // pinch zoom (2 ngón)
     const pts = new Map();
     let pinch0 = null;
-    let pageSwipe = null;
     this.stage.addEventListener('pointerdown', (e) => {
       pts.set(e.pointerId, e);
-      if (this.book?.bilingualReader && this.zoom === 1 && pts.size === 1 && e.button === 0 && !e.target.closest('button')) {
-        pageSwipe = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      }
       if (pts.size === 2) {
-        pageSwipe = null;
         const [a, b] = [...pts.values()];
         pinch0 = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), z: this.zoom };
       }
@@ -911,14 +905,6 @@ export class Reader {
     const up = (e) => {
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch0 = null;
-      if (pageSwipe?.id !== e.pointerId) return;
-      const dx = e.clientX - pageSwipe.x;
-      const dy = e.clientY - pageSwipe.y;
-      pageSwipe = null;
-      if (e.type === 'pointerup' && this.zoom === 1 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx < 0) this.next();
-        else this.prev();
-      }
     };
     this.stage.addEventListener('pointerup', up);
     this.stage.addEventListener('pointercancel', up);
