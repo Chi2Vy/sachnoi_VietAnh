@@ -50,6 +50,9 @@ export class Reader {
     if (!this.n) return false;
     this.urls = this.pages.map((p) => URL.createObjectURL(p.img));
     this.el.classList.toggle('bilingual-reader', !!book.bilingualReader);
+    const voiceControls = $('#pageVoices');
+    const voiceContainer = book.bilingualReader ? $('.reader-position') : this.stage;
+    voiceContainer.append(voiceControls);
     this.el.hidden = false;
     document.body.style.overflow = 'hidden';
     $('#rTitle').textContent = book.title;
