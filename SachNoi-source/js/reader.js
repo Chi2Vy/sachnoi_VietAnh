@@ -48,7 +48,7 @@ export class Reader {
     this.texts = await DB.getTexts(id);
     this.n = this.pages.length;
     if (!this.n) return false;
-    this.urls = this.pages.map((p) => URL.createObjectURL(p.img));
+    this.urls = this.pages.map((p) => p.imageUrl || URL.createObjectURL(p.img));
     this.el.classList.toggle('bilingual-reader', !!book.bilingualReader);
     const voiceControls = $('#pageVoices');
     const voiceContainer = book.bilingualReader ? $('.reader-position') : this.stage;
@@ -62,7 +62,7 @@ export class Reader {
     slider.max = this.n;
     $('#sliderMax').textContent = this.n;
     $('#rPageTotal').textContent = this.n;
-    $('#dlBtn').hidden = book.kind !== 'pdf';
+    $('#dlBtn').hidden = book.kind !== 'pdf' || !!book.bilingualReader;
     this.zoom = 1;
     this.tx = this.ty = 0;
     this._applyZoom();
@@ -88,7 +88,7 @@ export class Reader {
     try { this.flip?.destroy(); } catch {}
     this.flip = null;
     this.bookEl.innerHTML = '';
-    this.urls.forEach((u) => URL.revokeObjectURL(u));
+    this.urls.filter((url) => url.startsWith('blob:')).forEach((url) => URL.revokeObjectURL(url));
     this.thumbUrls.forEach((u) => URL.revokeObjectURL(u));
     this.urls = [];
     this.thumbUrls = [];
@@ -131,6 +131,17 @@ export class Reader {
       image.draggable = false;
       image.loading = 'lazy';
       image.decoding = 'async';
+      if (this.pages[index].imageUrl) {
+        image.fetchPriority = index === startIdx ? 'high' : 'low';
+        image.addEventListener('load', () => {
+          if (this.isOpen && this.cur === index && this.pageImages[index] === image) this._preloadPages(index);
+        }, { once: true });
+        image.addEventListener('error', () => {
+          if (this.isOpen && this.cur === index && this.pageImages[index] === image) {
+            this.toast(`Không tải được trang ${index + 1}. Hãy thử tải lại.`);
+          }
+        }, { once: true });
+      }
       image.src = url;
       return image;
     });
@@ -231,6 +242,17 @@ export class Reader {
   }
 
   _preloadPages(index) {
+    if (this.pages[index]?.imageUrl) {
+      const image = this.pageImages[index];
+      image.fetchPriority = 'high';
+      image.loading = 'eager';
+      if (image.complete && image.naturalWidth) {
+        for (const nearby of [this.pageImages[index - 1], this.pageImages[index + 1]]) {
+          if (nearby) nearby.loading = 'eager';
+        }
+      }
+      return;
+    }
     const start = Math.max(0, index - 2);
     const end = Math.min(this.pageImages.length, index + 4);
     for (let i = start; i < end; i++) this.pageImages[i].loading = 'eager';
@@ -400,8 +422,9 @@ export class Reader {
           const b = e.target;
           io.unobserve(b);
           const i = +b.dataset.i;
-          const u = URL.createObjectURL(this.pages[i].thumb);
-          this.thumbUrls.push(u);
+          const page = this.pages[i];
+          const u = page.imageUrl || URL.createObjectURL(page.thumb);
+          if (!page.imageUrl) this.thumbUrls.push(u);
           b.querySelector('.ph').replaceWith(Object.assign(new Image(), { src: u, alt: `Trang ${i + 1}`, loading: 'lazy' }));
         }
       },
