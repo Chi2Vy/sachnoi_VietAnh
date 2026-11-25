@@ -53,6 +53,10 @@ export class Reader {
     const voiceControls = $('#pageVoices');
     const voiceContainer = book.bilingualReader ? $('.reader-position') : this.stage;
     voiceContainer.append(voiceControls);
+    const tools = $('#readerTools');
+    $('[data-panel="voice"] use', tools).setAttribute('href', book.bilingualReader ? '#i-player' : '#i-voice');
+    if (book.bilingualReader) $('#readerNavStart').prepend(tools);
+    else $('.r-bottom').append(tools);
     this.el.hidden = false;
     document.body.style.overflow = 'hidden';
     $('#rTitle').textContent = book.title;
@@ -60,8 +64,9 @@ export class Reader {
     document.title = `${book.title} — Sách Nói`;
     const slider = $('#rSlider');
     slider.max = this.n;
-    $('#sliderMax').textContent = this.n;
-    $('#rPageTotal').textContent = this.n;
+    $('#sliderMin').textContent = book.bilingualReader ? 'Bìa' : '1';
+    $('#sliderMax').textContent = book.bilingualReader ? 'Bìa' : this.n;
+    $('#rPageTotal').textContent = book.lastPrintedPage || this.n;
     $('#dlBtn').hidden = book.kind !== 'pdf' || !!book.bilingualReader;
     this.zoom = 1;
     this.tx = this.ty = 0;
@@ -164,6 +169,7 @@ export class Reader {
       swipeDistance: 24,
       // Keep the original fold and let the wide single page turn once dragged past its center.
       finishDragAtCenter: !!this.book.bilingualReader,
+      mirrorPortraitBack: !!this.book.bilingualReader,
       startPage: startIdx,
       startZIndex: 5,
       autoSize: false,
@@ -208,16 +214,31 @@ export class Reader {
     return collection?.getSpread()[collection.getSpreadIndexByPage(this.cur)] ?? [this.cur];
   }
 
+  _pageLabel(index) {
+    if (!this.book.bilingualReader) return String(index + 1);
+    const page = this.pages[index];
+    if (!page.printedFrom) return index === 0 ? 'Bìa trước' : 'Bìa sau';
+    return page.printedFrom === page.printedTo ? String(page.printedFrom) : `${page.printedFrom}–${page.printedTo}`;
+  }
+
+  _pageCounter(index) {
+    const label = this._pageLabel(index);
+    if (this.book.bilingualReader && !this.pages[index].printedFrom) return label;
+    return `${label} / ${this.book.lastPrintedPage || this.n}`;
+  }
+
   _updateUI(addHistory = false) {
     const vis = this._visible();
     this._preloadPages(vis[0]);
-    const label = vis.length === 2 ? `${vis[0] + 1}–${vis[1] + 1}` : `${vis[0] + 1}`;
-    $('#rLabel').textContent = `${label} / ${this.n}`;
+    const label = vis.length === 2 ? `${vis[0] + 1}–${vis[1] + 1}` : this._pageLabel(vis[0]);
+    $('#rLabel').textContent = vis.length === 2 ? `${label} / ${this.n}` : this._pageCounter(vis[0]);
     $('#rSpreadRange').textContent = label;
     const jump = $('#rPage');
-    jump.value = this.focusedPage + 1;
+    jump.value = this.book.bilingualReader ? this.pages[this.focusedPage].printedFrom ?? '' : this.focusedPage + 1;
     jump.removeAttribute('aria-invalid');
-    $('#rSlider').value = this.focusedPage + 1;
+    const slider = $('#rSlider');
+    slider.value = this.focusedPage + 1;
+    slider.setAttribute('aria-valuetext', label);
     $('#edgePrev').disabled = vis[0] === 0;
     const atLastPage = this.focusedPage === this.n - 1;
     $('#edgeNext').disabled = atLastPage;
@@ -229,7 +250,7 @@ export class Reader {
       button.disabled = bilingual && atLastPage;
     });
     if (atLastPage && this.autoTimer) this._stopAuto();
-    $('#vPageNo').textContent = this.focusedPage + 1;
+    $('#vPageNo').textContent = this._pageLabel(this.focusedPage);
     this._refreshAudioState();
     this._syncPageVoiceButtons();
     if (this.panel === 'text') this._showPageText();
@@ -329,6 +350,11 @@ export class Reader {
     this.zoomWrap.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.zoom})`;
     this.pan.hidden = this.zoom <= 1;
     $('#zoomVal').textContent = `${Math.round(this.zoom * 100)}%`;
+    const zoomButton = $('.dock [data-act="zin"]');
+    const reset = this.book.bilingualReader && this.zoom > 1;
+    zoomButton.setAttribute('aria-label', reset ? 'Về kích thước vừa khung' : 'Phóng to');
+    zoomButton.title = reset ? 'Về kích thước vừa khung' : 'Phóng to (+)';
+    zoomButton.querySelector('use').setAttribute('href', reset ? '#i-zout' : '#i-zin');
   }
 
   /* ---------------- bảng bên ---------------- */
@@ -434,8 +460,8 @@ export class Reader {
       const b = document.createElement('button');
       b.className = 'thumb';
       b.dataset.i = i;
-      b.style.setProperty('--ar', ar);
-      b.innerHTML = `<div class="ph"></div><span>${i + 1}</span>`;
+      b.style.setProperty('--ar', this.pages[i].printedFrom ? '2 / 1' : ar);
+      b.innerHTML = `<div class="ph"></div><span>${this._pageLabel(i)}</span>`;
       b.onclick = () => {
         this.goTo(i);
         if (innerWidth < 720) this.closePanel();
@@ -455,7 +481,7 @@ export class Reader {
     }
     for (const it of items) {
       const li = document.createElement('li');
-      li.innerHTML = `<button style="padding-left:${10 + it.level * 16}px"><span>${esc(it.title)}</span><span>${it.page + 1}</span></button>`;
+      li.innerHTML = `<button style="padding-left:${10 + it.level * 16}px"><span>${esc(it.title)}</span><span>${this._pageLabel(it.page)}</span></button>`;
       li.firstChild.onclick = () => {
         this.goTo(it.page);
         if (innerWidth < 720) this.closePanel();
@@ -552,7 +578,7 @@ export class Reader {
       if (p !== this.focusedPage) this.goTo(p, { followVoice: true });
       this.voicePage = p;
       this._syncPageVoiceButtons();
-      $('#readingChipText').textContent = `Đang đọc trang ${p + 1}`;
+      $('#readingChipText').textContent = `Đang đọc trang ${this._pageLabel(p)}`;
       startedOnce = true;
       this._showTranscript(null);
       const ok = await this.voice.speakPage({ text, audioBlob: language ? page.voiceTracks?.[language] : page.audio }).catch((e) => {
@@ -771,7 +797,9 @@ export class Reader {
     $('#edgeNext').onclick = () => this.next();
 
     $('#rSlider').addEventListener('input', (e) => {
-      $('#rLabel').textContent = `${e.target.value} / ${this.n}`;
+      const index = Number(e.target.value) - 1;
+      $('#rLabel').textContent = this._pageCounter(index);
+      e.target.setAttribute('aria-valuetext', this._pageLabel(index));
     });
     $('#rSlider').addEventListener('change', (e) => this.goTo(+e.target.value - 1));
     $('#rJump').onsubmit = (event) => {
@@ -779,14 +807,20 @@ export class Reader {
       const input = $('#rPage');
       const value = input.value.trim();
       const page = Number(value);
-      if (!/^\d+$/.test(value) || page < 1 || page > this.n) {
+      const index = this.book.bilingualReader
+        ? this.pages.findIndex(({ printedFrom, printedTo }) => page >= printedFrom && page <= printedTo)
+        : page - 1;
+      if (!/^\d+$/.test(value) || index < 0 || index >= this.n) {
         input.setAttribute('aria-invalid', 'true');
         input.focus();
         input.select();
-        this.toast(`Nhập số trang từ 1 đến ${this.n}.`);
+        this.toast(this.book.bilingualReader
+          ? `Nhập số trang in từ 2 đến ${this.book.lastPrintedPage}.`
+          : `Nhập số trang từ 1 đến ${this.n}.`);
         return;
       }
-      this.goTo(page - 1);
+      if (this.book.bilingualReader) input.blur();
+      this.goTo(index);
     };
     $('#rPage').oninput = (event) => event.target.removeAttribute('aria-invalid');
     $('#rPage').onfocus = (event) => event.target.select();
@@ -802,7 +836,7 @@ export class Reader {
           else if (a === 'last') this.goTo(this.n - 1);
           else if (a === 'prev') this.prev();
           else if (a === 'next') this.next();
-          else if (a === 'zin') this.setZoom(this.zoom + 0.5);
+          else if (a === 'zin') this.setZoom(this.book.bilingualReader && this.zoom > 1 ? 1 : this.zoom + 0.5);
           else if (a === 'zout') this.setZoom(this.zoom - 0.5);
           else if (a === 'zreset') this.setZoom(1);
           else if (a === 'mode') {

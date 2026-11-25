@@ -35,6 +35,7 @@
     <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-player" viewBox="0 0 24 24"><rect x="4" y="5" width="15" height="14" rx="2"/><path d="m10 9 5 3-5 3zM21 7v10"/></symbol>
     <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z"/></symbol>
     <symbol id="i-full" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
     <symbol id="i-unfull" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
@@ -120,10 +121,12 @@
 
   <footer class="r-bottom">
     <div class="reader-position">
+    <div id="readerNavStart">
     <div class="slider-row">
       <span id="sliderMin">1</span>
       <input type="range" id="rSlider" min="1" max="1" value="1" aria-label="Chuyển tới trang" />
       <span id="sliderMax">1</span>
+    </div>
     </div>
     <nav class="page-nav" aria-label="Điều hướng trang sách">
       <button class="dk" data-act="first" title="Trang đầu"><svg class="ic"><use href="#i-first"/></svg></button>
@@ -139,17 +142,17 @@
       <button class="dk" data-act="last" title="Trang cuối"><svg class="ic"><use href="#i-last"/></svg></button>
     </nav>
     </div>
-    <nav class="dock" aria-label="Công cụ đọc sách">
+    <nav class="dock" id="readerTools" aria-label="Công cụ đọc sách">
       <button class="dk" data-act="zout" title="Thu nhỏ (−)"><svg class="ic"><use href="#i-zout"/></svg></button>
       <button class="dk zoom-val" data-act="zreset" title="Về 100%"><span id="zoomVal">100%</span></button>
-      <button class="dk" data-act="zin" title="Phóng to (+)"><svg class="ic"><use href="#i-zin"/></svg></button>
+      <button class="dk" data-act="zin" aria-label="Phóng to" title="Phóng to (+)"><svg class="ic"><use href="#i-zin"/></svg></button>
       <button class="dk" data-act="mode" id="modeBtn" title="Trang đơn / trang đôi"><svg class="ic"><use href="#i-double"/></svg></button>
       <i class="sep"></i>
-      <button class="dk" data-panel="pages" title="Danh sách trang"><svg class="ic"><use href="#i-grid"/></svg></button>
-      <button class="dk" data-panel="toc" title="Mục lục"><svg class="ic"><use href="#i-list"/></svg></button>
+      <button class="dk" data-panel="pages" aria-label="Trang thu nhỏ" title="Trang thu nhỏ"><svg class="ic"><use href="#i-grid"/></svg></button>
+      <button class="dk" data-panel="toc" aria-label="Mục lục" title="Mục lục"><svg class="ic"><use href="#i-list"/></svg></button>
       <button class="dk" data-panel="search" title="Tìm trong sách"><svg class="ic"><use href="#i-search"/></svg></button>
       <button class="dk" data-panel="text" aria-label="Chọn văn bản" title="Chọn văn bản"><svg class="ic"><use href="#i-text"/></svg></button>
-      <button class="dk voice-btn" data-panel="voice" title="Nghe đọc (Space)"><svg class="ic"><use href="#i-voice"/></svg></button>
+      <button class="dk voice-btn" data-panel="voice" aria-label="Nghe đọc" title="Nghe đọc (Space)"><svg class="ic"><use href="#i-voice"/></svg></button>
       <i class="sep"></i>
       <button class="dk" data-act="auto" id="autoBtn" title="Tự động lật trang"><svg class="ic"><use href="#i-auto"/></svg></button>
       <button class="dk" data-act="sound" id="soundBtn" title="Âm thanh lật trang"><svg class="ic"><use href="#i-bell"/></svg></button>

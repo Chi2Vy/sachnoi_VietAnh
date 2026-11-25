@@ -229,6 +229,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .88em; 
 @keyframes pulse { 50% { transform: scale(1.25); } }
 
 .r-bottom { position: relative; z-index: 6; padding: 5px 10px max(6px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 3px; background: #751d2b; border-top: 1px solid #c24b55; }
+#readerNavStart { width: 100%; min-width: 0; }
 .reader-position { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; width: min(100%, 980px); }
 .page-nav { display: flex; justify-content: center; align-items: center; gap: 2px; }
 .slider-row { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -317,7 +318,20 @@ mark { background: color-mix(in srgb, var(--amber) 55%, transparent); color: inh
 
 .bilingual-reader .r-top,
 .bilingual-reader .r-bottom { background: #be2335; border-color: #e54b56; }
-.bilingual-reader :is(.dock, #rBack, #rHelp) { display: none; }
+.bilingual-reader :is(#rBack, #rHelp) { display: none; }
+.bilingual-reader #readerNavStart { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.bilingual-reader #readerNavStart .slider-row { flex: 1; }
+.bilingual-reader .dock { gap: 0; padding: 0; border: 0; background: transparent; flex-wrap: nowrap; overflow: visible; backdrop-filter: none; }
+.bilingual-reader .dock > :not([data-act="zin"], [data-panel="pages"], [data-panel="toc"], [data-panel="voice"]) { display: none; }
+.bilingual-reader .dock .dk { min-width: 34px; height: 36px; padding: 0 5px; color: #fff; }
+.bilingual-reader .dock .dk .ic { width: 17px; height: 17px; }
+.bilingual-reader .dock .dk.on { color: #20180a; }
+.bilingual-reader .page-entry span { white-space: nowrap; }
+.bilingual-reader .stf__mirror-fold,
+.bilingual-reader .stf__mirror-fold .book-leaf img { transform: scaleX(-1); }
+@media (max-width: 820px) {
+  .bilingual-reader #readerNavStart { order: 1; width: min(100%, 440px); }
+}
 .bilingual-reader .zoom-wrap { inset: 6px; }
 .bilingual-reader #book { cursor: grab; }
 .bilingual-reader #book:active { cursor: grabbing; }
