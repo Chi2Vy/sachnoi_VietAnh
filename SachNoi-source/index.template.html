@@ -110,6 +110,12 @@
   <div class="stage" id="stage">
     <div class="zoom-wrap" id="zoomWrap"><div id="book" class="book"></div></div>
     <div class="pan-layer" id="panLayer" hidden></div>
+    <div class="zoom-controls" id="zoomControls" role="group" aria-label="Điều khiển phóng to" hidden>
+      <button type="button" id="zoomMinus" aria-label="Giảm mức phóng to" title="Giảm mức phóng to"><svg class="ic" aria-hidden="true"><use href="#i-zout"/></svg></button>
+      <output id="readerZoomPercent">100%</output>
+      <button type="button" id="zoomPlus" aria-label="Tăng mức phóng to" title="Tăng mức phóng to"><svg class="ic" aria-hidden="true"><use href="#i-zin"/></svg></button>
+      <button type="button" id="zoomFit">Vừa khung</button>
+    </div>
     <button class="edge prev" id="edgePrev" aria-label="Trang trước"><svg class="ic"><use href="#i-prev"/></svg></button>
     <button class="edge next" id="edgeNext" aria-label="Trang sau"><svg class="ic"><use href="#i-next"/></svg></button>
     <div class="reading-chip" id="readingChip" hidden><svg class="ic"><use href="#i-voice"/></svg><span id="readingChipText">Đang đọc…</span></div>

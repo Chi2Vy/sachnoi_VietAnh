@@ -354,3 +354,25 @@ mark { background: color-mix(in srgb, var(--amber) 55%, transparent); color: inh
 .bilingual-reader .page-voice { display: inline-flex; gap: 8px; align-items: center; width: auto; height: 38px; padding: 0 15px; border-radius: 10px; font-weight: 600; }
 .bilingual-reader .page-voice[hidden] { display: none; }
 .bilingual-reader .page-voice:has(use[href="#i-pause"]) { background: #be2335; border-color: #e54b56; color: #fff; }
+
+.zoom-controls {
+  position: absolute;
+  z-index: 7;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #f1c2bb;
+  border-radius: 10px;
+  background: #fff5ef;
+  color: #4c1721;
+  box-shadow: 0 2px 10px #0004;
+}
+.zoom-controls output { min-width: 3.5ch; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.zoom-controls button { color: inherit; background: transparent; border: 0; border-radius: 6px; height: 32px; padding: 0 8px; }
+.zoom-controls button:hover { background: #f1d3cb; }
+.zoom-controls button:disabled { opacity: .45; }
+.zoom-controls .ic { width: 16px; height: 16px; vertical-align: middle; }
+@media (max-width: 540px) { .stage:has(.zoom-controls:not([hidden])) .reading-chip { top: 53px; } }

@@ -87,6 +87,8 @@ export class Reader {
   close() {
     this.stopVoice();
     this._stopAuto();
+    this.zoomMotion?.cancel();
+    this.zoomDetail = null;
     this.closePanel();
     this.thumbObserver?.disconnect();
     if (document.fullscreenElement) document.exitFullscreen?.();
@@ -139,7 +141,10 @@ export class Reader {
       if (this.pages[index].imageUrl) {
         image.fetchPriority = index === startIdx ? 'high' : 'low';
         image.addEventListener('load', () => {
-          if (this.isOpen && this.cur === index && this.pageImages[index] === image) this._preloadPages(index);
+          if (this.isOpen && this.cur === index && this.pageImages[index] === image) {
+            this._preloadPages(index);
+            this._syncZoomQuality();
+          }
         }, { once: true });
         image.addEventListener('error', () => {
           if (this.isOpen && this.cur === index && this.pageImages[index] === image) {
@@ -230,6 +235,7 @@ export class Reader {
   _updateUI(addHistory = false) {
     const vis = this._visible();
     this._preloadPages(vis[0]);
+    this._syncZoomQuality();
     const label = vis.length === 2 ? `${vis[0] + 1}–${vis[1] + 1}` : this._pageLabel(vis[0]);
     $('#rLabel').textContent = vis.length === 2 ? `${label} / ${this.n}` : this._pageCounter(vis[0]);
     $('#rSpreadRange').textContent = label;
@@ -326,10 +332,14 @@ export class Reader {
   }
 
   /* ---------------- zoom & pan ---------------- */
-  setZoom(z, cx, cy) {
+  setZoom(z, cx, cy, animate = false) {
     const old = this.zoom;
     z = clamp(Math.round(z * 100) / 100, 1, 4);
     if (z === old) return;
+    const startTransform = animate && !matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? getComputedStyle(this.zoomWrap).transform
+      : null;
+    this.zoomMotion?.cancel();
     if (cx != null) {
       const r = this.stage.getBoundingClientRect();
       const px = cx - r.left - r.width / 2;
@@ -340,7 +350,39 @@ export class Reader {
     this.zoom = z;
     if (z === 1) this.tx = this.ty = 0;
     this._applyZoom();
+    this._syncZoomQuality();
+    if (startTransform) {
+      this.zoomMotion = this.zoomWrap.animate(
+        [{ transform: startTransform }, { transform: this.zoomWrap.style.transform }],
+        { duration: 250, easing: 'cubic-bezier(.2,.65,.3,1)' }
+      );
+    }
   }
+
+  _syncZoomQuality() {
+    const page = this.pages?.[this.focusedPage];
+    const image = this.pageImages[this.focusedPage];
+    const bounds = this.flip?.getBoundsRect();
+    const paperWidth = bounds ? (page?.printedFrom ? bounds.pageWidth : bounds.height) : 0;
+    const useDetail = page?.detailUrl && image && (this.zoom > 1
+      || (image.complete && image.naturalWidth > 0 && paperWidth * devicePixelRatio > 2300));
+    const previous = this.zoomDetail;
+    if (useDetail && previous?.image === image) return;
+    this.zoomDetail = null;
+    if (previous && previous.image.src === previous.detailUrl) previous.image.src = previous.previewUrl;
+    if (!useDetail) return;
+
+    const request = { image, detailUrl: page.detailUrl, previewUrl: page.imageUrl };
+    this.zoomDetail = request;
+    const detail = new Image();
+    detail.src = request.detailUrl;
+    detail.decode().then(() => {
+      if (this.zoomDetail === request) image.src = request.detailUrl;
+    }).catch(() => {
+      // Keep the preview available if the larger image cannot be decoded.
+    });
+  }
+
   _applyZoom() {
     const r = this.stage.getBoundingClientRect();
     const mx = ((this.zoom - 1) * r.width) / 2;
@@ -352,6 +394,9 @@ export class Reader {
     $('#zoomVal').textContent = `${Math.round(this.zoom * 100)}%`;
     const zoomButton = $('.dock [data-act="zin"]');
     const reset = this.book.bilingualReader && this.zoom > 1;
+    $('#zoomControls').hidden = !reset;
+    $('#readerZoomPercent').textContent = `${Math.round(this.zoom * 100)}%`;
+    $('#zoomPlus').disabled = this.zoom >= 4;
     zoomButton.setAttribute('aria-label', reset ? 'Về kích thước vừa khung' : 'Phóng to');
     zoomButton.title = reset ? 'Về kích thước vừa khung' : 'Phóng to (+)';
     zoomButton.querySelector('use').setAttribute('href', reset ? '#i-zout' : '#i-zin');
@@ -836,7 +881,10 @@ export class Reader {
           else if (a === 'last') this.goTo(this.n - 1);
           else if (a === 'prev') this.prev();
           else if (a === 'next') this.next();
-          else if (a === 'zin') this.setZoom(this.book.bilingualReader && this.zoom > 1 ? 1 : this.zoom + 0.5);
+          else if (a === 'zin') {
+            if (this.book.bilingualReader) this.setZoom(this.zoom > 1 ? 1 : 2.5, undefined, undefined, true);
+            else this.setZoom(this.zoom + 0.5);
+          }
           else if (a === 'zout') this.setZoom(this.zoom - 0.5);
           else if (a === 'zreset') this.setZoom(1);
           else if (a === 'mode') {
@@ -899,6 +947,7 @@ export class Reader {
     // zoom/pan bằng chuột & cảm ứng
     let drag = null;
     this.pan.addEventListener('pointerdown', (e) => {
+      this.zoomMotion?.cancel();
       drag = { x: e.clientX, y: e.clientY, tx: this.tx, ty: this.ty, moved: false };
       this.pan.setPointerCapture(e.pointerId);
       this.pan.classList.add('drag');
@@ -918,9 +967,20 @@ export class Reader {
     };
     this.pan.addEventListener('pointerup', end);
     this.pan.addEventListener('pointercancel', end);
-    this.pan.addEventListener('dblclick', (e) => this.setZoom(1, e.clientX, e.clientY));
+    $('#zoomMinus').onclick = () => {
+      this.setZoom(this.zoom - 0.5, undefined, undefined, true);
+      if (this.zoom === 1) $('.dock [data-act="zin"]').focus();
+    };
+    $('#zoomPlus').onclick = () => this.setZoom(this.zoom + 0.5, undefined, undefined, true);
+    $('#zoomFit').onclick = () => {
+      this.setZoom(1, undefined, undefined, true);
+      $('.dock [data-act="zin"]').focus();
+    };
+    this.pan.addEventListener('dblclick', (e) => this.setZoom(1, e.clientX, e.clientY, this.book.bilingualReader));
     this.stage.addEventListener('dblclick', (e) => {
-      if (this.zoom === 1 && !e.target.closest('.edge')) this.setZoom(2.5, e.clientX, e.clientY);
+      if (this.zoom === 1 && !e.target.closest('.edge, .pan-layer, button')) {
+        this.setZoom(2.5, e.clientX, e.clientY, this.book.bilingualReader);
+      }
     });
 
     let wheelLock = 0;

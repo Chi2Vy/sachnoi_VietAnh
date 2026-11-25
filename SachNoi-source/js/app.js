@@ -62,6 +62,7 @@ async function loadFeaturedBook() {
         bookId: book.id,
         n,
         imageUrl: new URL(`books/goc-ha-noi-viet-anh-pages/${n}.webp`, document.baseURI).href,
+        detailUrl: new URL(`books/goc-ha-noi-viet-anh-detail/${n}.webp`, document.baseURI).href,
         audio: null,
       };
       if (n >= 2 && n < book.pages) {
